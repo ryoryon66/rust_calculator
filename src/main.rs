@@ -19,7 +19,18 @@ fn calculate(s:String) -> i32 {
 fn main() {
 
     println!("電卓を起動しました");
-    println!("終了するにはexitと入力してください");
+    println!("終了するにはexitもしくはqと入力してください");
+
+    // english 
+    println!("Calculator is started");
+    println!("To exit, please input exit or q");
+
+    println!("+, -, *, /, ** are available");
+
+    // example
+
+    println!("example: 3 + 2 ** 3 * 2 + (1 + 2) * 3");
+    println!("28");
 
     loop {
         // 標準入力を待っていることを知らせるために>>を表示
