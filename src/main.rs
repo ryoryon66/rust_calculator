@@ -1,6 +1,7 @@
 
 // 四則演算のパーサーをかく
 use std::cell::Cell;
+use std::io::{self, Write};
 
 #[derive(Debug,PartialEq,Clone)]
 enum Token {
@@ -13,7 +14,7 @@ enum Token {
     RParen,
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 enum BinOp {
     Add,
     Sub,
@@ -21,7 +22,7 @@ enum BinOp {
     Div,
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq)]
 enum Ast {
     Number(i32),
     BinOp(Box<Ast>, BinOp, Box<Ast>),
@@ -45,36 +46,47 @@ fn tokenize(s:String) -> Vec<Token> {
             }
 
             '+' => {
-                tokens.push(Token::Number(buffer.unwrap()));
+                if let Some(n) = buffer {
+                    tokens.push(Token::Number(n));
+                }
                 tokens.push(Token::Plus);
                 buffer = None;
             }
 
             '-' => {
-                tokens.push(Token::Number(buffer.unwrap()));
+                if let Some(n) = buffer {
+                    tokens.push(Token::Number(n));
+                }
                 tokens.push(Token::Minus);
                 buffer = None;
             }
 
             '*' => {
-                tokens.push(Token::Number(buffer.unwrap()));
+                if let Some(n) = buffer {
+                    tokens.push(Token::Number(n));
+                }
                 tokens.push(Token::Asterisk);
                 buffer = None;
             }
 
             '/' => {
-                tokens.push(Token::Number(buffer.unwrap()));
+                if let Some(n) = buffer {
+                    tokens.push(Token::Number(n));
+                }
                 tokens.push(Token::Slash);
                 buffer = None;
             }
 
             '(' => {
-                assert!(buffer.is_none());
+                
                 tokens.push(Token::LParen);
+                buffer = None;
             }
 
             ')' => {
-                tokens.push(Token::Number(buffer.unwrap()));
+                if let Some(n) = buffer {
+                    tokens.push(Token::Number(n));
+                }
                 tokens.push(Token::RParen);
                 buffer = None;
             }
@@ -92,7 +104,6 @@ fn tokenize(s:String) -> Vec<Token> {
 
         pos += 1;
 
-        println!("pos: {}, buffer: {}", pos, buffer.unwrap_or(0));
     }
 
     if let Some(n) = buffer {
@@ -215,22 +226,126 @@ fn eval (ast : Ast) -> i32 {
     }
 }
 
+fn calculate(s:String) -> i32 {
+    let tokens = tokenize(s);
+    let parser = Parser::new(tokens);
+    let ast = parser.parse();
+    eval(ast)
+}
+
 
 fn main() {
-    println!("Hello, world!");
-    let expression = "3 * 2 + 1 + 5 ";
 
-    let tokens = tokenize(expression.to_string());
+    println!("電卓を起動しました");
+    println!("終了するにはexitと入力してください");
 
-    println!("{:?}", tokens);
+    loop {
+        // 標準入力を待っていることを知らせるために>>を表示
 
-    let parser = Parser::new(tokens);
+        print!(">> ");
+        // 標準出力をフラッシュする フラッシュしないと >> 計算結果になる。
+        io::stdout().flush().unwrap();
+        // 標準入力から1行読み込む
+        let mut s = String::new();
+        io::stdin().read_line(&mut s).unwrap();
+        let s = s.trim();
+        if s == "exit" || s == "q" {
+            break;
+        }
 
-    let ast = parser.parse();
+        if s.is_empty() {
+            continue;
+        }
+        let answer = calculate(s.to_string());
+        println!("{}", answer);
+    }
+}
 
-    println!("{:?}", ast);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let val = eval(ast);
+    #[test]
+    fn test_tokenize() {
+        let expression = "3 * 2 + 1 + 5 ";
 
-    println!("{}", val);
+        let tokens = tokenize(expression.to_string());
+
+        assert_eq!(tokens, vec![
+            Token::Number(3),
+            Token::Asterisk,
+            Token::Number(2),
+            Token::Plus,
+            Token::Number(1),
+            Token::Plus,
+            Token::Number(5),
+        ]);
+    }
+
+    #[test]
+    fn test_parser() {
+        let expression = "3 * 2 + 1 + 5 ";
+
+        let tokens = tokenize(expression.to_string());
+
+        let parser = Parser::new(tokens);
+
+        let ast = parser.parse();
+
+        assert_eq!(ast, Ast::BinOp(
+            Box::new(Ast::BinOp(
+                Box::new(Ast::BinOp(
+                    Box::new(Ast::Number(3)),
+                    BinOp::Mul,
+                    Box::new(Ast::Number(2)),
+                )),
+                BinOp::Add,
+                Box::new(Ast::Number(1)),
+            )),
+            BinOp::Add,
+            Box::new(Ast::Number(5)),
+        ));
+    }
+
+    #[test]
+    fn test_eval() {
+        let expression = "3 + 2 / 2 + 1 + 5 * 2 ";
+
+        let tokens = tokenize(expression.to_string());
+
+        let parser = Parser::new(tokens);
+
+        let ast = parser.parse();
+
+        let val = eval(ast);
+
+        assert_eq!(val, 15);
+    }
+
+    #[test]
+    fn test_calculate1() {
+        let expression = "3 + 2 / 2 + 1 + 5 * 2 ";
+
+        let val = calculate(expression.to_string());
+
+        assert_eq!(val, 15);
+    }
+
+    #[test]
+    fn test_calculate2() {
+        let expression = " (4 + 5)";
+        let val = calculate(expression.to_string());
+
+        assert_eq!(val, 9);
+
+        let expression = " 3 * (4 + 5) / 2 ";
+
+        let val = calculate(expression.to_string());
+        assert_eq!(val, 13);
+
+        let expression = "(((3)))";
+        let val = calculate(expression.to_string());
+
+        assert_eq!(val, 3);
+    }
 }
