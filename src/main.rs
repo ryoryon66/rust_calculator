@@ -10,6 +10,7 @@ enum Token {
     Minus,
     Asterisk,
     Slash,
+    Power,
     LParen,
     RParen,
 }
@@ -20,6 +21,7 @@ enum BinOp {
     Sub,
     Mul,
     Div,
+    Power,
 }
 
 #[derive(Debug,PartialEq)]
@@ -65,7 +67,15 @@ fn tokenize(s:String) -> Vec<Token> {
                 if let Some(n) = buffer {
                     tokens.push(Token::Number(n));
                 }
-                tokens.push(Token::Asterisk);
+
+                // 次の文字を先読みする
+
+                if let Some('*') = s.chars().nth(pos + 1) {
+                    tokens.push(Token::Power);
+                    pos += 1;
+                } else {
+                    tokens.push(Token::Asterisk);
+                }
                 buffer = None;
             }
 
@@ -170,21 +180,34 @@ impl Parser {
     }
     
     fn term(&self) -> Ast {
-        let mut node = self.factor();
+        let mut node = self.power();
 
         loop {
             if self.consume(Token::Asterisk) {
                 let lhs = node;
-                let rhs = self.factor();
+                let rhs = self.power();
                 node = Ast::BinOp(Box::new(lhs), BinOp::Mul, Box::new(rhs));
             } else if self.consume(Token::Slash) {
                 let lhs = node;
-                let rhs = self.factor();
+                let rhs = self.power();
                 node = Ast::BinOp(Box::new(lhs), BinOp::Div, Box::new(rhs));
             } else {
                 break;
             }
         }
+        node
+    }
+
+    fn power(&self) -> Ast {
+        let mut node = self.factor();
+
+        // べき乗は右結合であることに注意する
+        if self.consume(Token::Power) {
+            let lhs = node;
+            let rhs = self.power();
+            node = Ast::BinOp(Box::new(lhs), BinOp::Power, Box::new(rhs));
+        }
+
         node
     }
 
@@ -221,6 +244,7 @@ fn eval (ast : Ast) -> i32 {
                 BinOp::Sub => lhs - rhs,
                 BinOp::Mul => lhs * rhs,
                 BinOp::Div => lhs / rhs,
+                BinOp::Power => lhs.pow(rhs as u32),
             }
         }
     }
@@ -329,6 +353,17 @@ mod tests {
         let val = calculate(expression.to_string());
 
         assert_eq!(val, 15);
+
+    }
+    #[test]
+    fn test_power() {
+        let expression = "3 ** 4 ";
+        let val = calculate(expression.to_string());
+        assert_eq!(val, 81);
+
+        let expression = "3 ** 4 ** 2 ";
+        let val = calculate(expression.to_string());
+        assert_eq!(val, 3i32.pow(4i32.pow(2) as u32));
     }
 
     #[test]
