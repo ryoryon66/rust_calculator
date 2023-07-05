@@ -43,10 +43,12 @@ fn main() {
         io::stdin().read_line(&mut s).unwrap();
         let s = s.trim();
         if s == "exit" || s == "q" {
+            
             break;
         }
 
         if s.is_empty() {
+            println!();
             continue;
         }
         let answer = calculate(s.to_string());
